@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mom's Basement</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; color: #eee; font-family: system-ui, sans-serif; overflow: hidden; }
+  #scene {
+    position: absolute; inset: 0;
+    background: #0a0806 center/cover no-repeat;
+    transition: background-image 0.6s ease;
+  }
+  #overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.15), transparent 30%, transparent 70%, rgba(0,0,0,0.4));
+    pointer-events: none;
+  }
+  #ui {
+    position: absolute; top: 16px; left: 16px; z-index: 10;
+    background: rgba(10,8,6,0.75); padding: 12px 16px; border-radius: 10px;
+    backdrop-filter: blur(8px); max-width: 260px;
+  }
+  #ui h1 { font-size: 1.3rem; color: #ffcc99; margin-bottom: 4px; }
+  #ui p { font-size: 0.8rem; opacity: 0.8; }
+  #nav {
+    position: absolute; bottom: 20px; left: 0; right: 0;
+    display: flex; justify-content: center; gap: 10px; z-index: 10;
+    padding: 0 12px;
+  }
+  .nav-btn {
+    background: rgba(20,14,10,0.8); border: 1px solid #6a5038;
+    color: #ffcc99; padding: 10px 16px; border-radius: 20px;
+    font-size: 0.85rem; cursor: pointer; backdrop-filter: blur(6px);
+  }
+  .nav-btn.active { background: #ffaa66; color: #1a120c; border-color: #ffaa66; }
+  #info {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: rgba(20,14,10,0.92); padding: 20px; border-radius: 12px;
+    border: 1px solid #6a5038; max-width: 300px; display: none; z-index: 20;
+    text-align: center;
+  }
+  #info button {
+    margin-top: 12px; padding: 8px 16px; background: #ffaa66; border: none;
+    border-radius: 6px; font-weight: bold; color: #1a120c; cursor: pointer;
+  }
+  .hotspot {
+    position: absolute; width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(255,170,100,0.85); border: 2px solid #fff;
+    cursor: pointer; z-index: 5; transform: translate(-50%,-50%);
+    box-shadow: 0 0 12px rgba(255,170,100,0.6);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { transform: translate(-50%,-50%) scale(1); }
+    50% { transform: translate(-50%,-50%) scale(1.15); }
+    100% { transform: translate(-50%,-50%) scale(1); }
+  }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+<div id="overlay"></div>
+<div id="ui">
+  <h1>Mom's Basement</h1>
+  <p>Tap the glowing dots · Use buttons to move between areas</p>
+</div>
+<div id="nav"></div>
+<div id="info">
+  <h2 id="info-title"></h2>
+  <p id="info-text" style="margin-top:8px;"></p>
+  <button onclick="document.getElementById('info').style.display='none'">Close</button>
+</div>
+
+<script>
+const areas = {
+  main: {
+    img: "main-room.jpg",
+    title: "Main Room",
+    hotspots: [
+      { x: "28%", y: "62%", title: "The Couch", text: "Permanent residency. Controllers, blankets, and crumbs live in the cushions." },
+      { x: "72%", y: "48%", title: "CRT TV", text: "Showing static. The remote is somewhere under the couch." },
+      { x: "48%", y: "78%", title: "Coffee Table", text: "Pizza box of unknown age, empty cans, and the remote that never works." }
+    ]
+  },
+  stairs: {
+    img: "stairs.jpg",
+    title: "Stairs",
+    hotspots: [
+      { x: "50%", y: "35%", title: "Upstairs Door", text: "Leads to the main floor. Mom's probably up there." },
+      { x: "50%", y: "70%", title: "Stairs", text: "Worn wood steps. Watch your step." }
+    ]
+  },
+  gaming: {
+    img: "gaming.jpg",
+    title: "Gaming Corner",
+    hotspots: [
+      { x: "62%", y: "42%", title: "Gaming Setup", text: "RGB is mandatory. Wi-Fi password sticky note fell behind the tower." },
+      { x: "22%", y: "55%", title: "PC Tower", text: "Fans spinning. Cables everywhere." }
+    ]
+  },
+  toilet: {
+    img: "toilet.jpg",
+    title: "Toilet",
+    hotspots: [
+      { x: "42%", y: "48%", title: "Toilet Door", text: "Basement bathroom. Pull-chain light. The toilet runs sometimes." }
+    ]
+  }
+};
+
+const scene = document.getElementById("scene");
+const nav = document.getElementById("nav");
+let current = "main";
+
+function renderHotspots(area) {
+  document.querySelectorAll(".hotspot").forEach(h => h.remove());
+  area.hotspots.forEach(h => {
+    const dot = document.createElement("div");
+    dot.className = "hotspot";
+    dot.style.left = h.x;
+    dot.style.top = h.y;
+    dot.onclick = () => {
+      document.getElementById("info-title").textContent = h.title;
+      document.getElementById("info-text").textContent = h.text;
+      document.getElementById("info").style.display = "block";
+    };
+    scene.appendChild(dot);
+  });
+}
+
+function show(areaKey) {
+  current = areaKey;
+  const area = areas[areaKey];
+  scene.style.backgroundImage = `url(${area.img})`;
+  renderHotspots(area);
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.area === areaKey));
+}
+
+// Build nav
+Object.keys(areas).forEach(key => {
+  const btn = document.createElement("button");
+  btn.className = "nav-btn";
+  btn.textContent = areas[key].title;
+  btn.dataset.area = key;
+  btn.onclick = () => show(key);
+  nav.appendChild(btn);
+});
+
+show("main");
+</script>
+</body>
+</html>
