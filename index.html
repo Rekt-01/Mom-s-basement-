@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mom's Basement</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; touch-action: none; font-family: system-ui, sans-serif; color: #eee; }
+  #ui { position: absolute; top: 12px; left: 12px; z-index: 10; background: rgba(10,8,6,0.8); padding: 10px 14px; border-radius: 8px; max-width: 220px; pointer-events: none; font-size: 0.85rem; }
+  #ui h1 { font-size: 1.2rem; color: #ffcc99; margin-bottom: 4px; }
+  #hint { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 14px; font-size: 0.75rem; z-index: 10; pointer-events: none; }
+  #controls { position: absolute; bottom: 16px; left: 0; right: 0; z-index: 20; display: flex; justify-content: space-between; padding: 0 16px; pointer-events: none; }
+  .btn { width: 56px; height: 56px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; pointer-events: auto; user-select: none; }
+  .btn:active { background: rgba(255,180,80,0.5); }
+  #look-area { position: absolute; inset: 0; z-index: 5; }
+  #info { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(20,14,10,0.95); padding: 18px; border-radius: 10px; border: 1px solid #6a5038; max-width: 300px; display: none; z-index: 30; text-align: center; }
+  #info button { margin-top: 12px; padding: 8px 16px; background: #ffaa66; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: #1a120c; }
+</style>
+</head>
+<body>
+<div id="ui"><h1>Mom's Basement</h1><p>Drag to look · Buttons to walk</p></div>
+<div id="hint">Walk around the room</div>
+<div id="look-area"></div>
+<div id="controls">
+  <div class="btn" id="btn-left">◀</div>
+  <div style="display:flex; flex-direction:column; gap:6px;">
+    <div class="btn" id="btn-forward">▲</div>
+    <div class="btn" id="btn-back">▼</div>
+  </div>
+  <div class="btn" id="btn-right">▶</div>
+</div>
+<div id="info">
+  <h2 id="info-title"></h2>
+  <p id="info-text"></p>
+  <button onclick="document.getElementById('info').style.display='none'">Close</button>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0806);
+scene.fog = new THREE.FogExp2(0x0a0806, 0.02);
+
+const camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(0, 1.6, 3);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+document.body.appendChild(renderer.domElement);
+
+const loader = new THREE.TextureLoader();
+const mainTex = loader.load("main-room.jpg");
+const stairsTex = loader.load("stairs.jpg");
+const gamingTex = loader.load("gaming.jpg");
+const toiletTex = loader.load("toilet.jpg");
+[mainTex, stairsTex, gamingTex, toiletTex].forEach(t => {
+  t.colorSpace = THREE.SRGBColorSpace;
+});
+
+// Simple room using concept images as large textured walls
+const roomSize = 12;
+const wallH = 3.2;
+
+function makeWall(w, h, tex, x, y, z, rotY) {
+  const geo = new THREE.PlaneGeometry(w, h);
+  const mat = new THREE.MeshBasicMaterial({ map: tex });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y, z);
+  mesh.rotation.y = rotY;
+  scene.add(mesh);
+  return mesh;
+}
+
+// Main room walls (using the concept images)
+makeWall(roomSize, wallH, mainTex, 0, wallH/2, -roomSize/2, 0);       // back
+makeWall(roomSize, wallH, stairsTex, roomSize/2, wallH/2, 0, -Math.PI/2); // right (stairs)
+makeWall(roomSize * 0.6, wallH, gamingTex, -roomSize/2 + 1, wallH/2, 2, Math.PI/2); // left gaming
+makeWall(3, wallH, toiletTex, -roomSize/2, wallH/2, -2, Math.PI/2);   // toilet door area
+
+// Floor
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(roomSize, roomSize),
+  new THREE.MeshBasicMaterial({ color: 0x3a2a1e })
+);
+floor.rotation.x = -Math.PI / 2;
+scene.add(floor);
+
+// Ceiling
+const ceiling = new THREE.Mesh(
+  new THREE.PlaneGeometry(roomSize, roomSize),
+  new THREE.MeshBasicMaterial({ color: 0x1a120c })
+);
+ceiling.rotation.x = Math.PI / 2;
+ceiling.position.y = wallH;
+scene.add(ceiling);
+
+// Simple props
+const couch = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.6, 1.1), new THREE.MeshBasicMaterial({ color: 0x5a3a28 }));
+couch.position.set(-2, 0.3, -2);
+scene.add(couch);
+
+const tv = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.9, 0.4), new THREE.MeshBasicMaterial({ color: 0x222 }));
+tv.position.set(1.5, 0.7, -4.5);
+scene.add(tv);
+
+// Lighting
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const bulb = new THREE.PointLight(0xffe0b0, 2, 15);
+bulb.position.set(0, 2.5, 0);
+scene.add(bulb);
+
+// Look controls
+const lookArea = document.getElementById("look-area");
+let yaw = 0, pitch = 0;
+let looking = false, startX, startY, lastYaw, lastPitch;
+
+function applyLook() {
+  camera.rotation.order = "YXZ";
+  camera.rotation.y = yaw;
+  camera.rotation.x = pitch;
+}
+
+lookArea.addEventListener("touchstart", e => {
+  if (e.touches.length === 1) {
+    looking = true;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    lastYaw = yaw; lastPitch = pitch;
+  }
+}, { passive: true });
+lookArea.addEventListener("touchmove", e => {
+  if (!looking || e.touches.length !== 1) return;
+  const dx = e.touches[0].clientX - startX;
+  const dy = e.touches[0].clientY - startY;
+  yaw = lastYaw - dx * 0.006;
+  pitch = Math.max(-1.2, Math.min(1.2, lastPitch - dy * 0.006));
+  applyLook();
+}, { passive: true });
+lookArea.addEventListener("touchend", () => looking = false);
+
+lookArea.addEventListener("mousedown", e => {
+  looking = true;
+  startX = e.clientX; startY = e.clientY;
+  lastYaw = yaw; lastPitch = pitch;
+});
+window.addEventListener("mousemove", e => {
+  if (!looking) return;
+  const dx = e.clientX - startX;
+  const dy = e.clientY - startY;
+  yaw = lastYaw - dx * 0.005;
+  pitch = Math.max(-1.2, Math.min(1.2, lastPitch - dy * 0.005));
+  applyLook();
+});
+window.addEventListener("mouseup", () => looking = false);
+
+// Movement
+const move = { f: false, b: false, l: false, r: false };
+function bind(id, key) {
+  const el = document.getElementById(id);
+  el.addEventListener("touchstart", e => { e.preventDefault(); move[key] = true; });
+  el.addEventListener("touchend", e => { e.preventDefault(); move[key] = false; });
+  el.addEventListener("mousedown", () => move[key] = true);
+  el.addEventListener("mouseup", () => move[key] = false);
+  el.addEventListener("mouseleave", () => move[key] = false);
+}
+bind("btn-forward", "f");
+bind("btn-back", "b");
+bind("btn-left", "l");
+bind("btn-right", "r");
+
+document.addEventListener("keydown", e => {
+  if (e.key === "w" || e.key === "ArrowUp") move.f = true;
+  if (e.key === "s" || e.key === "ArrowDown") move.b = true;
+  if (e.key === "a" || e.key === "ArrowLeft") move.l = true;
+  if (e.key === "d" || e.key === "ArrowRight") move.r = true;
+});
+document.addEventListener("keyup", e => {
+  if (e.key === "w" || e.key === "ArrowUp") move.f = false;
+  if (e.key === "s" || e.key === "ArrowDown") move.b = false;
+  if (e.key === "a" || e.key === "ArrowLeft") move.l = false;
+  if (e.key === "d" || e.key === "ArrowRight") move.r = false;
+});
+
+const speed = 3.2;
+function animate() {
+  requestAnimationFrame(animate);
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  forward.y = 0; forward.normalize();
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+  right.y = 0; right.normalize();
+
+  if (move.f) camera.position.addScaledVector(forward, speed * 0.016);
+  if (move.b) camera.position.addScaledVector(forward, -speed * 0.016);
+  if (move.l) camera.position.addScaledVector(right, -speed * 0.016);
+  if (move.r) camera.position.addScaledVector(right, speed * 0.016);
+
+  camera.position.y = 1.6;
+  camera.position.x = Math.max(-5.5, Math.min(5.5, camera.position.x));
+  camera.position.z = Math.max(-5.5, Math.min(5.5, camera.position.z));
+
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
